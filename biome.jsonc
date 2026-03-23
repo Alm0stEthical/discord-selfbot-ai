@@ -1,0 +1,41 @@
+{
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "extends": ["ultracite/biome/core"],
+  "files": {
+    "includes": [
+      "src/**/*.ts",
+      "package.json",
+      "tsconfig.json",
+      "biome.jsonc",
+      "README.md",
+      ".env.example",
+      "!data",
+      "!node_modules"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "lineWidth": 100
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "style": {
+        "useFilenamingConvention": "off"
+      }
+    }
+  },
+  "javascript": {
+    "globals": ["Bun"],
+    "formatter": {
+      "quoteStyle": "double",
+      "semicolons": "always",
+      "trailingCommas": "all"
+    }
+  },
+  "json": {
+    "formatter": {
+      "trailingCommas": "none"
+    }
+  }
+}
