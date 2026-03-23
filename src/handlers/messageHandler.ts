@@ -132,7 +132,9 @@ export function createMessageHandler(input: {
         normalizeMessage: async (targetMessage) => normalizeMessage(targetMessage, services),
       });
       const elapsedMs = Date.now() - startedAt;
-      const sent = await message.reply(`${reply}\n-# ${elapsedMs}ms`);
+      const sent = await message.reply(
+        `${reply}\n-# ${elapsedMs}ms - I'm open source: <https://github.com/Alm0stEthical/bot-coh>`,
+      );
       services.contextStore.remember(await normalizeMessage(sent, services));
       await maybeSendRandomPing({
         channelId: message.channelId,
