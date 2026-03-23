@@ -4,8 +4,8 @@ Production-ready Bun + TypeScript Discord bot foundation with:
 
 - `discord.js` v13 message commands
 - OpenRouter chat completions
-- OpenRouter voice-note transcription via audio-capable models
-- Bun SQLite whitelist storage
+- OpenRouter voice-note transcription via the configured chat model
+- Bun SQLite blacklist storage
 - reply-aware conversational context
 - display-name-aware social context
 
@@ -20,7 +20,7 @@ src/
   discord/        client creation and event wiring
   context/        short-term channel and reply-chain memory
   ai/             OpenRouter client and request builder
-  filters/        trigger rules, whitelist gate, cooldowns
+  filters/        trigger rules, ignore list, cooldowns
   handlers/       high-level message orchestration
   attachments/    voice-note transcription helpers
   utils/          logger and shared helpers
@@ -33,21 +33,19 @@ src/
 3. Enable the `MESSAGE CONTENT INTENT` for the bot in the Discord developer portal
 4. Start the bot: `bun run dev`
 
-If `OPENROUTER_TRANSCRIPTION_MODEL` is omitted, Coh reuses `OPENROUTER_MODEL` for voice-note transcription.
-
 The built-in Coh prompt lives in `src/prompts/cohSystemPrompt.ts`.
 
 ## Prefix Commands
 
-- `coh help`
-- `coh ping`
-- `coh whitelist add <userId>`
-- `coh whitelist remove <userId>`
-- `coh whitelist list`
-- `coh whitelist check <userId>`
+- `bot help`
+- `bot ping`
+- `bot blacklist add <userId>`
+- `bot blacklist remove <userId>`
+- `bot blacklist list`
+- `bot blacklist check <userId>`
 
 ## Notes
 
-- Coh only replies when the user is whitelisted, or the message explicitly starts with `coh`, or the message is a reply to a Coh message.
-- Coh prefers Discord display names in-context so replies feel more native in busy servers.
-- On startup, Coh validates the configured OpenRouter transcription model and refuses to boot unless that model supports audio input.
+- The bot ignores users on the blacklist and otherwise replies when the message starts with the configured prefix or replies to the bot.
+- The bot prefers Discord display names in-context so replies feel more native in busy servers.
+- On startup, the bot validates that the configured OpenRouter model supports both text and audio input.

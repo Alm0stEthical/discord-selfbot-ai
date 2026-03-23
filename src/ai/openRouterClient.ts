@@ -119,7 +119,7 @@ export function createOpenRouterClient(config: AppConfig, logger: Logger): OpenR
         choices?: Array<{ message?: { content?: string } }>;
       }>({
         body: JSON.stringify({
-          model: config.openRouterTranscriptionModel,
+          model: config.openRouterModel,
           messages: [
             {
               role: "user",

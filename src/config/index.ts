@@ -16,7 +16,6 @@ export interface AppConfig {
   openRouterModel: string;
   openRouterTemperature: number;
   openRouterTimeoutMs: number;
-  openRouterTranscriptionModel: string;
   randomPingChance: number;
   randomPingCooldownMs: number;
   replyChainLimit: number;
@@ -77,7 +76,6 @@ export function loadConfig(): AppConfig {
     replyMaxCharacters: optionalNumber("REPLY_MAX_CHARACTERS", 180),
     replyChainLimit: optionalNumber("REPLY_CHAIN_LIMIT", 6),
     channelContextTtlMs: optionalNumber("CHANNEL_CONTEXT_TTL_MS", 60 * 60 * 1000),
-    openRouterTranscriptionModel: Bun.env.OPENROUTER_TRANSCRIPTION_MODEL ?? openRouterModel,
     openRouterTimeoutMs: optionalNumber("OPENROUTER_TIMEOUT_MS", 30_000),
     openRouterMaxOutputTokens: optionalNumber("OPENROUTER_MAX_OUTPUT_TOKENS", 140),
     openRouterTemperature: optionalNumber("OPENROUTER_TEMPERATURE", 0.8),

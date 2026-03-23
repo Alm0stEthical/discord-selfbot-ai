@@ -69,7 +69,7 @@ export function createAttachmentTranscriptionService(input: {
         requiredInputModality: "text",
       });
       await input.openRouterClient.validateModelSupport({
-        model: input.config.openRouterTranscriptionModel,
+        model: input.config.openRouterModel,
         requiredInputModality: "audio",
       });
     },
