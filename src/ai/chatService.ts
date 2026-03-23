@@ -9,6 +9,8 @@ import type {
   OpenRouterClient,
 } from "./openRouterClient";
 
+const UNDERAGE_SELF_CLAIM_PATTERN = /^\s*i(?:['’]?m| am)\s+(1[0-2]|[1-9])(?:\b|[^\d])/iu;
+
 export interface ChatService {
   generateReply(input: {
     message: Message;
@@ -93,7 +95,11 @@ function normalizeReplyStyle(reply: string): string {
 }
 
 function sanitizeAgeClaim(reply: string): string {
-  return reply.replace(/\b(i(?:['’]?m| am))\s+(1[0-2]|[1-9])\b/giu, "$1 grown");
+  if (UNDERAGE_SELF_CLAIM_PATTERN.test(reply)) {
+    return "not doing the toddler bit";
+  }
+
+  return reply;
 }
 
 function buildCurrentUserContent(normalizedMessage: StoredMessage): ChatCompletionContentPart[] {

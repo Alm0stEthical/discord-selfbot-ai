@@ -11,6 +11,14 @@ import type { ServiceContainer } from "../types/services";
 
 const IMAGE_CONTENT_TYPE_PREFIX = "image/";
 const IMAGE_FILE_EXTENSIONS = new Set(["gif", "jpeg", "jpg", "png", "webp"]);
+const SPAM_WINDOW_MS = 12_000;
+const SPAM_WARNING_COOLDOWN_MS = 20_000;
+const SPAM_TRIGGER_COUNT = 3;
+
+interface SpamBurstState {
+  timestamps: number[];
+  warningSentAt?: number;
+}
 
 function isImageAttachmentName(name: string | null): boolean {
   if (!name) {
@@ -76,29 +84,15 @@ export function createMessageHandler(input: {
 }) {
   const { services, commandRegistry } = input;
   const randomPingState = new Map<string, number>();
+  const spamBurstState = new Map<string, SpamBurstState>();
 
   return async (message: Message): Promise<void> => {
     if (message.author.id === message.client.user?.id) {
       return;
     }
 
-    const parsed = parseCommand(message.content, services.config.botPrefix);
-    if (parsed) {
-      const command = commandRegistry.get(parsed.commandName);
-      if (command) {
-        if (command.adminOnly && !services.messageFilter.isAdmin(message)) {
-          await message.reply("You do not have permission to use that command.");
-          return;
-        }
-
-        await command.execute({
-          message,
-          args: parsed.args,
-          rawArgs: parsed.rawArgs,
-          services,
-        });
-        return;
-      }
+    if (await maybeHandleCommand({ commandRegistry, message, services })) {
+      return;
     }
 
     const decision = await services.messageFilter.evaluate(message);
@@ -109,6 +103,13 @@ export function createMessageHandler(input: {
     services.contextStore.remember(normalizedMessage);
 
     if (!decision.shouldRespond) {
+      return;
+    }
+
+    const spamResponse = getSpamWarning({ decision, message, spamBurstState });
+    if (spamResponse) {
+      const sent = await message.channel.send(spamResponse);
+      services.contextStore.remember(await normalizeMessage(sent, services));
       return;
     }
 
@@ -143,6 +144,79 @@ export function createMessageHandler(input: {
       }
     }
   };
+}
+
+async function maybeHandleCommand(input: {
+  commandRegistry: CommandRegistry;
+  message: Message;
+  services: ServiceContainer;
+}): Promise<boolean> {
+  const parsed = parseCommand(input.message.content, input.services.config.botPrefix);
+  if (!parsed) {
+    return false;
+  }
+
+  const command = input.commandRegistry.get(parsed.commandName);
+  if (!command) {
+    return false;
+  }
+
+  if (command.adminOnly && !input.services.messageFilter.isAdmin(input.message)) {
+    await input.message.reply("You do not have permission to use that command.");
+    return true;
+  }
+
+  await command.execute({
+    message: input.message,
+    args: parsed.args,
+    rawArgs: parsed.rawArgs,
+    services: input.services,
+  });
+  return true;
+}
+
+function getSpamWarning(input: {
+  decision: {
+    isExplicitInvoke: boolean;
+    isMentionToBot: boolean;
+    isReplyToBot: boolean;
+  };
+  message: Message;
+  spamBurstState: Map<string, SpamBurstState>;
+}): string | null {
+  if (
+    !(
+      input.decision.isExplicitInvoke ||
+      input.decision.isMentionToBot ||
+      input.decision.isReplyToBot
+    )
+  ) {
+    return null;
+  }
+
+  const key = `${input.message.channelId}:${input.message.author.id}`;
+  const now = Date.now();
+  const existing = input.spamBurstState.get(key) ?? { timestamps: [] };
+  existing.timestamps = existing.timestamps.filter(
+    (timestamp) => now - timestamp <= SPAM_WINDOW_MS,
+  );
+  existing.timestamps.push(now);
+  input.spamBurstState.set(key, existing);
+
+  if (existing.timestamps.length < SPAM_TRIGGER_COUNT) {
+    return null;
+  }
+
+  if (
+    existing.warningSentAt !== undefined &&
+    now - existing.warningSentAt <= SPAM_WARNING_COOLDOWN_MS
+  ) {
+    return null;
+  }
+
+  existing.warningSentAt = now;
+  existing.timestamps = [];
+  return `<@${input.message.author.id}> chill bro`;
 }
 
 async function maybeSendRandomPing(input: {
