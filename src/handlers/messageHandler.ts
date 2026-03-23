@@ -78,6 +78,10 @@ export function createMessageHandler(input: {
   const randomPingState = new Map<string, number>();
 
   return async (message: Message): Promise<void> => {
+    if (message.author.id === message.client.user?.id) {
+      return;
+    }
+
     const parsed = parseCommand(message.content, services.config.botPrefix);
     if (parsed) {
       const command = commandRegistry.get(parsed.commandName);
