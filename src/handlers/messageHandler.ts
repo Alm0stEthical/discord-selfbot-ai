@@ -143,7 +143,7 @@ export function createMessageHandler(input: {
         services,
       });
     } catch (error) {
-      services.logger.error("Failed to generate Coh reply", error);
+      services.logger.error("Failed to generate bot reply", error);
       await message.reply("Could not generate a response right now.");
     } finally {
       activeConversationKeys.delete(conversationKey);

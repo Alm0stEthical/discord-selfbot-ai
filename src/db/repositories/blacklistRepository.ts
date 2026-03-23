@@ -1,15 +1,15 @@
 import type { Database } from "bun:sqlite";
 
-export interface WhitelistEntry {
+export interface BlacklistEntry {
   addedBy: string;
   createdAt: number;
   userId: string;
 }
 
-export interface WhitelistRepository {
-  add(userId: string, addedBy: string): WhitelistEntry;
+export interface BlacklistRepository {
+  add(userId: string, addedBy: string): BlacklistEntry;
   has(userId: string): boolean;
-  list(): WhitelistEntry[];
+  list(): BlacklistEntry[];
   remove(userId: string): boolean;
 }
 
@@ -19,7 +19,7 @@ interface Row {
   user_id: string;
 }
 
-function mapRow(row: Row): WhitelistEntry {
+function mapRow(row: Row): BlacklistEntry {
   return {
     userId: row.user_id,
     addedBy: row.added_by,
@@ -27,26 +27,26 @@ function mapRow(row: Row): WhitelistEntry {
   };
 }
 
-export function createWhitelistRepository(database: Database): WhitelistRepository {
+export function createBlacklistRepository(database: Database): BlacklistRepository {
   const insert = database.query<Row, [string, string]>(`
-    INSERT INTO whitelist (user_id, added_by)
+    INSERT INTO blacklist (user_id, added_by)
     VALUES (?, ?)
     ON CONFLICT(user_id) DO NOTHING
     RETURNING user_id, added_by, created_at
   `);
   const selectOne = database.query<Row, [string]>(`
     SELECT user_id, added_by, created_at
-    FROM whitelist
+    FROM blacklist
     WHERE user_id = ?
     LIMIT 1
   `);
   const remove = database.query(`
-    DELETE FROM whitelist
+    DELETE FROM blacklist
     WHERE user_id = ?
   `);
   const list = database.query<Row, []>(`
     SELECT user_id, added_by, created_at
-    FROM whitelist
+    FROM blacklist
     ORDER BY created_at DESC, user_id ASC
   `);
 
@@ -59,8 +59,9 @@ export function createWhitelistRepository(database: Database): WhitelistReposito
 
       const existing = selectOne.get(userId);
       if (!existing) {
-        throw new Error(`Failed to add whitelist entry for ${userId}`);
+        throw new Error(`Failed to add blacklist entry for ${userId}`);
       }
+
       return mapRow(existing);
     },
     remove(userId) {

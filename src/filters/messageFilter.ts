@@ -1,14 +1,14 @@
 import type { Message } from "discord.js-selfbot-v13";
 import type { AppConfig } from "../config";
-import type { WhitelistRepository } from "../db/repositories/whitelistRepository";
+import type { BlacklistRepository } from "../db/repositories/blacklistRepository";
 import type { Logger } from "../utils/logger";
 import type { CooldownManager } from "./cooldownManager";
 
 export interface MessageDecision {
   isExplicitInvoke: boolean;
+  isIgnored: boolean;
   isMentionToBot: boolean;
   isReplyToBot: boolean;
-  isWhitelisted: boolean;
   reason?: string;
   shouldRespond: boolean;
 }
@@ -20,11 +20,11 @@ export interface MessageFilter {
 
 export function createMessageFilter(input: {
   config: AppConfig;
-  whitelistRepository: WhitelistRepository;
+  blacklistRepository: BlacklistRepository;
   cooldowns: CooldownManager;
   logger: Logger;
 }): MessageFilter {
-  const { config, whitelistRepository, cooldowns } = input;
+  const { config, blacklistRepository, cooldowns } = input;
 
   return {
     async evaluate(message) {
@@ -34,7 +34,7 @@ export function createMessageFilter(input: {
           isReplyToBot: false,
           isMentionToBot: false,
           isExplicitInvoke: false,
-          isWhitelisted: false,
+          isIgnored: false,
           reason: "ignored-bot",
         };
       }
@@ -49,7 +49,7 @@ export function createMessageFilter(input: {
           isReplyToBot: false,
           isMentionToBot: false,
           isExplicitInvoke: false,
-          isWhitelisted: false,
+          isIgnored: false,
           reason: "guild-not-allowed",
         };
       }
@@ -66,15 +66,26 @@ export function createMessageFilter(input: {
         ? await message.fetchReference().catch(() => null)
         : null;
       const isReplyToBot = referenced?.author.id === message.client.user?.id;
-      const isWhitelisted = whitelistRepository.has(message.author.id);
+      const isIgnored = blacklistRepository.has(message.author.id);
 
-      if (!(isWhitelisted || isExplicitInvoke || isReplyToBot || isMentionToBot)) {
+      if (isIgnored) {
         return {
           shouldRespond: false,
           isReplyToBot,
           isMentionToBot,
           isExplicitInvoke,
-          isWhitelisted,
+          isIgnored,
+          reason: "ignored-user",
+        };
+      }
+
+      if (!(isExplicitInvoke || isReplyToBot || isMentionToBot)) {
+        return {
+          shouldRespond: false,
+          isReplyToBot,
+          isMentionToBot,
+          isExplicitInvoke,
+          isIgnored,
           reason: "not-triggered",
         };
       }
@@ -86,13 +97,13 @@ export function createMessageFilter(input: {
           isReplyToBot,
           isMentionToBot,
           isExplicitInvoke,
-          isWhitelisted,
+          isIgnored,
           reason: "cooldown",
         };
       }
 
       cooldowns.hit(key);
-      return { shouldRespond: true, isReplyToBot, isMentionToBot, isExplicitInvoke, isWhitelisted };
+      return { shouldRespond: true, isReplyToBot, isMentionToBot, isExplicitInvoke, isIgnored };
     },
     isAdmin(message) {
       if (config.botOwnerIds.has(message.author.id)) {

@@ -60,7 +60,7 @@ async function fetchJsonWithRetry<T>(input: {
           Authorization: `Bearer ${input.config.openRouterApiKey}`,
           "Content-Type": "application/json",
           "HTTP-Referer": "https://coh.local",
-          "X-Title": "Coh",
+          "X-Title": "Discord Bot",
         },
         body: input.body,
         signal: controller.signal,

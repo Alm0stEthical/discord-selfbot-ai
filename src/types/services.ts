@@ -4,13 +4,14 @@ import type { OpenRouterClient } from "../ai/openRouterClient";
 import type { AttachmentTranscriptionService } from "../attachments/attachmentTranscriptionService";
 import type { AppConfig } from "../config";
 import type { ContextStore } from "../context/contextStore";
-import type { WhitelistRepository } from "../db/repositories/whitelistRepository";
+import type { BlacklistRepository } from "../db/repositories/blacklistRepository";
 import type { CooldownManager } from "../filters/cooldownManager";
 import type { MessageFilter } from "../filters/messageFilter";
 import type { Logger } from "../utils/logger";
 
 export interface ServiceContainer {
   attachmentTranscriptionService: AttachmentTranscriptionService;
+  blacklistRepository: BlacklistRepository;
   chatService: ChatService;
   config: AppConfig;
   contextStore: ContextStore;
@@ -19,5 +20,4 @@ export interface ServiceContainer {
   logger: Logger;
   messageFilter: MessageFilter;
   openRouterClient: OpenRouterClient;
-  whitelistRepository: WhitelistRepository;
 }

@@ -1,11 +1,11 @@
 import type { ServiceContainer } from "../types/services";
+import { blacklistCommand } from "./modules/blacklistCommand";
 import { helpCommand } from "./modules/helpCommand";
 import { pingCommand } from "./modules/pingCommand";
-import { whitelistCommand } from "./modules/whitelistCommand";
 import type { CommandDefinition, CommandRegistry } from "./types";
 
 export function createCommandRegistry(_services: ServiceContainer): CommandRegistry {
-  const commands: CommandDefinition[] = [helpCommand, pingCommand, whitelistCommand];
+  const commands: CommandDefinition[] = [helpCommand, pingCommand, blacklistCommand];
   const index = new Map<string, CommandDefinition>();
 
   for (const command of commands) {

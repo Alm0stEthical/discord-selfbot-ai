@@ -6,7 +6,7 @@ import { loadConfig } from "../config";
 import { createContextStore } from "../context/contextStore";
 import { createDatabase } from "../db/client";
 import { runMigrations } from "../db/migrate";
-import { createWhitelistRepository } from "../db/repositories/whitelistRepository";
+import { createBlacklistRepository } from "../db/repositories/blacklistRepository";
 import { createDiscordClient } from "../discord/createClient";
 import { registerEvents } from "../discord/registerEvents";
 import { createCooldownManager } from "../filters/cooldownManager";
@@ -22,7 +22,7 @@ export function createApp() {
 
   runMigrations(database);
 
-  const whitelistRepository = createWhitelistRepository(database);
+  const blacklistRepository = createBlacklistRepository(database);
   const contextStore = createContextStore({
     historyLimit: config.messageHistoryLimit,
     ttlMs: config.channelContextTtlMs,
@@ -35,16 +35,16 @@ export function createApp() {
   });
   const chatService = createChatService({ config, openRouterClient, contextStore, logger });
   const cooldowns = createCooldownManager(config.triggerCooldownMs);
-  const messageFilter = createMessageFilter({ config, whitelistRepository, cooldowns, logger });
+  const messageFilter = createMessageFilter({ config, blacklistRepository, cooldowns, logger });
   const client = createDiscordClient();
   let isShuttingDown = false;
 
   const services: ServiceContainer = {
     attachmentTranscriptionService,
+    blacklistRepository,
     config,
     logger,
     database,
-    whitelistRepository,
     contextStore,
     openRouterClient,
     chatService,
@@ -91,7 +91,7 @@ export function createApp() {
         requiredInputModality: "image",
       });
       await client.login(config.discordToken);
-      logger.info("Coh connected to Discord.");
+      logger.info("Bot connected to Discord.");
     },
   };
 }

@@ -69,7 +69,7 @@ export function loadConfig(): AppConfig {
     openRouterModel,
     openRouterBaseUrl: Bun.env.OPENROUTER_BASE_URL ?? "https://openrouter.ai/api/v1",
     databasePath: resolve(Bun.env.DATABASE_PATH ?? "./data/coh.sqlite"),
-    botPrefix: (Bun.env.BOT_PREFIX ?? "coh").trim().toLowerCase(),
+    botPrefix: (Bun.env.BOT_PREFIX ?? "bot").trim().toLowerCase(),
     systemPrompt: cohSystemPrompt,
     botOwnerIds: optionalList("BOT_OWNER_IDS"),
     allowedGuildIds: optionalList("ALLOWED_GUILD_IDS"),
