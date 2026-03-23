@@ -133,7 +133,7 @@ export function createMessageHandler(input: {
       });
       const elapsedMs = Date.now() - startedAt;
       const sent = await message.reply(
-        `${reply}\n-# ${elapsedMs}ms - I'm open source: <https://github.com/Alm0stEthical/bot-coh>`,
+        `${reply}\n-# ${elapsedMs}ms - I'm open source: <https://github.com/Alm0stEthical/discord-selfbot-ai>`,
       );
       services.contextStore.remember(await normalizeMessage(sent, services));
       await maybeSendRandomPing({
