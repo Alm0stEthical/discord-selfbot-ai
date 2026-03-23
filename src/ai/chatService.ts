@@ -88,7 +88,12 @@ function shortenReply(reply: string, maxCharacters: number): string {
 }
 
 function normalizeReplyStyle(reply: string): string {
-  return reply.replace(/\.(?=$|\n)/g, "").trim();
+  const normalized = reply.replace(/\.(?=$|\n)/g, "").trim();
+  return sanitizeAgeClaim(normalized);
+}
+
+function sanitizeAgeClaim(reply: string): string {
+  return reply.replace(/\b(i(?:['’]?m| am))\s+(1[0-2]|[1-9])\b/giu, "$1 grown");
 }
 
 function buildCurrentUserContent(normalizedMessage: StoredMessage): ChatCompletionContentPart[] {
