@@ -11,15 +11,13 @@ import type { ServiceContainer } from "../types/services";
 
 const IMAGE_CONTENT_TYPE_PREFIX = "image/";
 const IMAGE_FILE_EXTENSIONS = new Set(["gif", "jpeg", "jpg", "png", "webp"]);
-const SPAM_WINDOW_MS = 12_000;
-const SPAM_WARNING_COOLDOWN_MS = 20_000;
-const SPAM_IGNORE_AFTER_WARNING_MS = 45_000;
+const SPAM_WINDOW_MS = 15_000;
+const SPAM_IGNORE_AFTER_WARNING_MS = 60_000;
 const SPAM_TRIGGER_COUNT = 3;
 
 interface SpamBurstState {
   ignoreUntil?: number;
   timestamps: number[];
-  warningSentAt?: number;
 }
 
 function isImageAttachmentName(name: string | null): boolean {
@@ -109,10 +107,7 @@ export function createMessageHandler(input: {
       return;
     }
 
-    const spamResponse = getSpamWarning({ decision, message, spamBurstState });
-    if (spamResponse) {
-      const sent = await message.channel.send(spamResponse);
-      services.contextStore.remember(await normalizeMessage(sent, services));
+    if (shouldIgnoreSpamBurst({ decision, message, spamBurstState })) {
       return;
     }
 
@@ -190,7 +185,7 @@ async function maybeHandleCommand(input: {
   return true;
 }
 
-function getSpamWarning(input: {
+function shouldIgnoreSpamBurst(input: {
   decision: {
     isExplicitInvoke: boolean;
     isMentionToBot: boolean;
@@ -198,7 +193,7 @@ function getSpamWarning(input: {
   };
   message: Message;
   spamBurstState: Map<string, SpamBurstState>;
-}): string | null {
+}): boolean {
   if (
     !(
       input.decision.isExplicitInvoke ||
@@ -206,7 +201,7 @@ function getSpamWarning(input: {
       input.decision.isReplyToBot
     )
   ) {
-    return null;
+    return false;
   }
 
   const key = getConversationKey(input.message);
@@ -216,7 +211,7 @@ function getSpamWarning(input: {
   if (existing.ignoreUntil !== undefined && now < existing.ignoreUntil) {
     existing.timestamps = [];
     input.spamBurstState.set(key, existing);
-    return null;
+    return true;
   }
 
   existing.timestamps = existing.timestamps.filter(
@@ -226,20 +221,12 @@ function getSpamWarning(input: {
   input.spamBurstState.set(key, existing);
 
   if (existing.timestamps.length < SPAM_TRIGGER_COUNT) {
-    return null;
+    return false;
   }
 
-  if (
-    existing.warningSentAt !== undefined &&
-    now - existing.warningSentAt <= SPAM_WARNING_COOLDOWN_MS
-  ) {
-    return null;
-  }
-
-  existing.warningSentAt = now;
   existing.ignoreUntil = now + SPAM_IGNORE_AFTER_WARNING_MS;
   existing.timestamps = [];
-  return `<@${input.message.author.id}> chill bro`;
+  return true;
 }
 
 async function maybeSendRandomPing(input: {
