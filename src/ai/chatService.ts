@@ -15,6 +15,9 @@ const UNDERAGE_SELF_CLAIM_PATTERNS = [
   /^\s*me\s+is\s+(1[0-2]|[1-9])(?:\b|[^\d])/iu,
   /^\s*my age\s+is\s+(1[0-2]|[1-9])(?:\b|[^\d])/iu,
 ];
+const DISCORD_USER_MENTION_PATTERN = /<@!?(\d+)>/gu;
+const DISCORD_BROADCAST_MENTION_PATTERN = /@(everyone|here)\b/giu;
+const ZERO_WIDTH_SPACE = "\u200b";
 
 export interface ChatService {
   generateReply(input: {
@@ -96,7 +99,7 @@ function shortenReply(reply: string, maxCharacters: number): string {
 
 function normalizeReplyStyle(reply: string): string {
   const normalized = reply.replace(/\.(?=$|\n)/g, "").trim();
-  return sanitizeAgeClaim(normalized);
+  return sanitizeMentions(sanitizeAgeClaim(normalized));
 }
 
 function sanitizeAgeClaim(reply: string): string {
@@ -105,6 +108,12 @@ function sanitizeAgeClaim(reply: string): string {
   }
 
   return reply;
+}
+
+function sanitizeMentions(reply: string): string {
+  return reply
+    .replace(DISCORD_USER_MENTION_PATTERN, `<@${ZERO_WIDTH_SPACE}$1>`)
+    .replace(DISCORD_BROADCAST_MENTION_PATTERN, `@${ZERO_WIDTH_SPACE}$1`);
 }
 
 function buildCurrentUserContent(normalizedMessage: StoredMessage): ChatCompletionContentPart[] {

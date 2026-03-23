@@ -85,6 +85,7 @@ export function createMessageHandler(input: {
   const { services, commandRegistry } = input;
   const randomPingState = new Map<string, number>();
   const spamBurstState = new Map<string, SpamBurstState>();
+  const activeConversationKeys = new Set<string>();
 
   return async (message: Message): Promise<void> => {
     if (message.author.id === message.client.user?.id) {
@@ -113,6 +114,13 @@ export function createMessageHandler(input: {
       return;
     }
 
+    const conversationKey = getConversationKey(message);
+    if (activeConversationKeys.has(conversationKey)) {
+      return;
+    }
+
+    activeConversationKeys.add(conversationKey);
+
     let typingInterval: ReturnType<typeof setInterval> | undefined;
 
     try {
@@ -139,11 +147,16 @@ export function createMessageHandler(input: {
       services.logger.error("Failed to generate Coh reply", error);
       await message.reply("Could not generate a response right now.");
     } finally {
+      activeConversationKeys.delete(conversationKey);
       if (typingInterval) {
         clearInterval(typingInterval);
       }
     }
   };
+}
+
+function getConversationKey(message: Message): string {
+  return `${message.channelId}:${message.author.id}`;
 }
 
 async function maybeHandleCommand(input: {
@@ -194,7 +207,7 @@ function getSpamWarning(input: {
     return null;
   }
 
-  const key = `${input.message.channelId}:${input.message.author.id}`;
+  const key = getConversationKey(input.message);
   const now = Date.now();
   const existing = input.spamBurstState.get(key) ?? { timestamps: [] };
   existing.timestamps = existing.timestamps.filter(
