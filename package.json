@@ -1,5 +1,8 @@
 {
   "name": "coh",
+  "engines": {
+    "node": "20"
+  },
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,6 +13,7 @@
     "fix": "ultracite fix"
   },
   "dependencies": {
+    "debug": "^4.4.3",
     "discord.js": "^13.17.1",
     "discord.js-selfbot-v13": "^3.7.1"
   },
