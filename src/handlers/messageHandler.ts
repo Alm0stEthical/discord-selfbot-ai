@@ -13,9 +13,11 @@ const IMAGE_CONTENT_TYPE_PREFIX = "image/";
 const IMAGE_FILE_EXTENSIONS = new Set(["gif", "jpeg", "jpg", "png", "webp"]);
 const SPAM_WINDOW_MS = 12_000;
 const SPAM_WARNING_COOLDOWN_MS = 20_000;
+const SPAM_IGNORE_AFTER_WARNING_MS = 45_000;
 const SPAM_TRIGGER_COUNT = 3;
 
 interface SpamBurstState {
+  ignoreUntil?: number;
   timestamps: number[];
   warningSentAt?: number;
 }
@@ -210,6 +212,13 @@ function getSpamWarning(input: {
   const key = getConversationKey(input.message);
   const now = Date.now();
   const existing = input.spamBurstState.get(key) ?? { timestamps: [] };
+
+  if (existing.ignoreUntil !== undefined && now < existing.ignoreUntil) {
+    existing.timestamps = [];
+    input.spamBurstState.set(key, existing);
+    return null;
+  }
+
   existing.timestamps = existing.timestamps.filter(
     (timestamp) => now - timestamp <= SPAM_WINDOW_MS,
   );
@@ -228,6 +237,7 @@ function getSpamWarning(input: {
   }
 
   existing.warningSentAt = now;
+  existing.ignoreUntil = now + SPAM_IGNORE_AFTER_WARNING_MS;
   existing.timestamps = [];
   return `<@${input.message.author.id}> chill bro`;
 }
