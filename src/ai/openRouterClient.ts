@@ -37,14 +37,7 @@ interface TranscriptionInput {
 }
 
 export interface OpenRouterClient {
-  createChatCompletion(
-    messages: ChatCompletionMessage[],
-    options?: {
-      maxTokens?: number;
-      model?: string;
-      temperature?: number;
-    },
-  ): Promise<string>;
+  createChatCompletion(messages: ChatCompletionMessage[]): Promise<string>;
   transcribeAudio(input: TranscriptionInput): Promise<string>;
   validateModelSupport(input: ValidateModelSupportInput): Promise<void>;
 }
@@ -99,15 +92,15 @@ async function fetchJsonWithRetry<T>(input: {
 
 export function createOpenRouterClient(config: AppConfig, logger: Logger): OpenRouterClient {
   return {
-    async createChatCompletion(messages, options) {
+    async createChatCompletion(messages) {
       const payload = await fetchJsonWithRetry<{
         choices?: Array<{ message?: { content?: string } }>;
       }>({
         body: JSON.stringify({
-          model: options?.model ?? config.openRouterModel,
+          model: config.openRouterModel,
           messages,
-          temperature: options?.temperature ?? config.openRouterTemperature,
-          max_tokens: options?.maxTokens ?? config.openRouterMaxOutputTokens,
+          temperature: config.openRouterTemperature,
+          max_tokens: config.openRouterMaxOutputTokens,
         }),
         config,
         logger,
