@@ -53,7 +53,7 @@ export function createApp() {
   };
 
   const commandRegistry = createCommandRegistry(services);
-  const messageHandler = createMessageHandler({ services, commandRegistry, client });
+  const messageHandler = createMessageHandler({ services, commandRegistry });
 
   registerEvents({ client, logger, messageHandler });
 

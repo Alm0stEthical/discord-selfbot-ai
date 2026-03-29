@@ -1,4 +1,4 @@
-import type { Client, Message } from "discord.js-selfbot-v13";
+import type { Message } from "discord.js-selfbot-v13";
 import { parseCommand } from "../commands/parser";
 import type { CommandRegistry } from "../commands/types";
 import type { StoredMessage } from "../context/types";
@@ -11,6 +11,9 @@ import type { ServiceContainer } from "../types/services";
 
 const IMAGE_CONTENT_TYPE_PREFIX = "image/";
 const IMAGE_FILE_EXTENSIONS = new Set(["gif", "jpeg", "jpg", "png", "webp"]);
+const AI_COMMAND_NAME = "a";
+const BOT_MESSAGE_IGNORE_TTL_MS = 30_000;
+const PROCESSED_AI_MESSAGE_TTL_MS = 5 * 60_000;
 const SPAM_WINDOW_MS = 15_000;
 const SPAM_IGNORE_AFTER_WARNING_MS = 60_000;
 const SPAM_TRIGGER_COUNT = 3;
@@ -42,12 +45,13 @@ function collectImageUrls(message: Message): string[] {
 async function normalizeMessage(
   message: Message,
   services: ServiceContainer,
-  options?: { stripBotMention?: boolean; stripPrefix?: boolean },
+  options?: { promptOverride?: string; stripBotMention?: boolean; stripPrefix?: boolean },
 ): Promise<StoredMessage> {
   const transcription = await services.attachmentTranscriptionService.transcribeVoiceNote(message);
   const displayName = resolveMemberName(message.member ?? null, message.author);
   const authorLabel = buildAuthorLabel(message.member ?? null, message.author);
-  const sanitizedContent = sanitizeIncomingContent(message, services, options);
+  const sanitizedContent =
+    options?.promptOverride ?? sanitizeIncomingContent(message, services, options);
   const parts = [sanitizedContent].filter(Boolean);
   const imageUrls = collectImageUrls(message);
 
@@ -72,7 +76,7 @@ async function normalizeMessage(
     createdAt: message.createdTimestamp,
     id: message.id,
     imageUrls,
-    isBot: message.author.bot,
+    isBot: isMessageFromClient(message),
     replyToMessageId: message.reference?.messageId,
   };
 }
@@ -80,15 +84,20 @@ async function normalizeMessage(
 export function createMessageHandler(input: {
   services: ServiceContainer;
   commandRegistry: CommandRegistry;
-  client: Client;
 }) {
   const { services, commandRegistry } = input;
+  const ignoredBotMessages = new Map<string, number>();
+  const processedAiMessages = new Map<string, number>();
   const randomPingState = new Map<string, number>();
   const spamBurstState = new Map<string, SpamBurstState>();
   const activeConversationKeys = new Set<string>();
 
   return async (message: Message): Promise<void> => {
-    if (message.author.id === message.client.user?.id) {
+    const aiCommand = prepareAiCommand(message, services.config.botPrefix, {
+      ignoredBotMessages,
+      processedAiMessages,
+    });
+    if (aiCommand.shouldIgnore) {
       return;
     }
 
@@ -98,8 +107,9 @@ export function createMessageHandler(input: {
 
     const decision = await services.messageFilter.evaluate(message);
     const normalizedMessage = await normalizeMessage(message, services, {
+      promptOverride: aiCommand.prompt ?? undefined,
       stripBotMention: decision.isMentionToBot,
-      stripPrefix: decision.isExplicitInvoke,
+      stripPrefix: decision.isExplicitInvoke && aiCommand.prompt === null,
     });
     services.contextStore.remember(normalizedMessage);
 
@@ -111,12 +121,14 @@ export function createMessageHandler(input: {
       return;
     }
 
-    const conversationKey = getConversationKey(message);
-    if (activeConversationKeys.has(conversationKey)) {
-      return;
+    if (aiCommand.prompt !== null) {
+      processedAiMessages.set(message.id, Date.now() + PROCESSED_AI_MESSAGE_TTL_MS);
     }
 
-    activeConversationKeys.add(conversationKey);
+    const conversationKey = getConversationKey(message);
+    if (!tryBeginConversation(activeConversationKeys, conversationKey)) {
+      return;
+    }
 
     let typingInterval: ReturnType<typeof setInterval> | undefined;
 
@@ -135,6 +147,7 @@ export function createMessageHandler(input: {
       const sent = await message.reply(
         `${reply}\n-# ${elapsedMs}ms - I'm open source: <https://github.com/Alm0stEthical/discord-selfbot-ai>`,
       );
+      ignoredBotMessages.set(sent.id, Date.now() + BOT_MESSAGE_IGNORE_TTL_MS);
       services.contextStore.remember(await normalizeMessage(sent, services));
       await maybeSendRandomPing({
         channelId: message.channelId,
@@ -154,8 +167,70 @@ export function createMessageHandler(input: {
   };
 }
 
+function prepareAiCommand(
+  message: Message,
+  prefix: string,
+  caches: {
+    ignoredBotMessages: Map<string, number>;
+    processedAiMessages: Map<string, number>;
+  },
+): { prompt: string | null; shouldIgnore: boolean } {
+  cleanupExpiringMessageIds(caches.ignoredBotMessages);
+  cleanupExpiringMessageIds(caches.processedAiMessages);
+
+  if (caches.ignoredBotMessages.has(message.id) || isMessageFromClient(message)) {
+    return { prompt: null, shouldIgnore: true };
+  }
+
+  const prompt = extractAiPrompt(message.content, prefix);
+  if (prompt === null) {
+    return { prompt: null, shouldIgnore: false };
+  }
+
+  if (prompt.length === 0 || caches.processedAiMessages.has(message.id)) {
+    return { prompt, shouldIgnore: true };
+  }
+
+  return { prompt, shouldIgnore: false };
+}
+
+function cleanupExpiringMessageIds(cache: Map<string, number>): void {
+  const now = Date.now();
+
+  for (const [messageId, expiresAt] of cache.entries()) {
+    if (expiresAt <= now) {
+      cache.delete(messageId);
+    }
+  }
+}
+
+function extractAiPrompt(content: string, prefix: string): string | null {
+  const parsed = parseCommand(content, prefix);
+  if (parsed?.commandName !== AI_COMMAND_NAME) {
+    return null;
+  }
+
+  return parsed.rawArgs.trim();
+}
+
 function getConversationKey(message: Message): string {
   return `${message.channelId}:${message.author.id}`;
+}
+
+function tryBeginConversation(
+  activeConversationKeys: Set<string>,
+  conversationKey: string,
+): boolean {
+  if (activeConversationKeys.has(conversationKey)) {
+    return false;
+  }
+
+  activeConversationKeys.add(conversationKey);
+  return true;
+}
+
+function isMessageFromClient(message: Message): boolean {
+  return message.author.bot || message.author.id === message.client.user?.id;
 }
 
 async function maybeHandleCommand(input: {

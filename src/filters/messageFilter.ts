@@ -28,7 +28,11 @@ export function createMessageFilter(input: {
 
   return {
     async evaluate(message) {
-      if (message.author.bot || message.webhookId) {
+      if (
+        message.author.bot ||
+        message.webhookId ||
+        message.author.id === message.client.user?.id
+      ) {
         return {
           shouldRespond: false,
           isReplyToBot: false,
