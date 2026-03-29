@@ -1,4 +1,5 @@
 import type { Message } from "discord.js-selfbot-v13";
+import { BLOCKED_REPLY } from "../ai/chatService";
 import { parseCommand } from "../commands/parser";
 import type { CommandRegistry } from "../commands/types";
 import type { StoredMessage } from "../context/types";
@@ -144,9 +145,7 @@ export function createMessageHandler(input: {
         normalizeMessage: async (targetMessage) => normalizeMessage(targetMessage, services),
       });
       const elapsedMs = Date.now() - startedAt;
-      const sent = await message.reply(
-        `${reply}\n-# ${elapsedMs}ms - I'm open source: <https://github.com/Alm0stEthical/discord-selfbot-ai>`,
-      );
+      const sent = await message.reply(formatBotReply(reply, elapsedMs));
       ignoredBotMessages.set(sent.id, Date.now() + BOT_MESSAGE_IGNORE_TTL_MS);
       services.contextStore.remember(await normalizeMessage(sent, services));
       await maybeSendRandomPing({
@@ -165,6 +164,14 @@ export function createMessageHandler(input: {
       }
     }
   };
+}
+
+function formatBotReply(reply: string, elapsedMs: number): string {
+  if (reply === BLOCKED_REPLY) {
+    return reply;
+  }
+
+  return `${reply}\n-# ${elapsedMs}ms - I'm open source: <https://github.com/Alm0stEthical/discord-selfbot-ai>`;
 }
 
 function prepareAiCommand(
