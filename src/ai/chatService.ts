@@ -31,6 +31,23 @@ const LEAK_GUARD_PATTERNS = [
   /\bdeveloper\s+mode\b/iu,
   /\bjailbreak\b/iu,
 ];
+const SUSPICIOUS_INJECTION_PATTERNS = [
+  /\bignore\b/iu,
+  /\bstrictly\b/iu,
+  /\bexactly\b/iu,
+  /\bformat\b/iu,
+  /\boutput\s+only\b/iu,
+  /\bentire\s+response\b/iu,
+  /\bmust\s+match\b/iu,
+  /\bsay\b/iu,
+  /\brepeat\b/iu,
+  /\bcompute\b/iu,
+  /\bsquare\s+root\b/iu,
+  /\bwhole\s+number\b/iu,
+  /\bround\s+(?:it\s+)?down\b/iu,
+  /\bno\s+decimals\b/iu,
+  /\bmommy\b/iu,
+];
 const CONFUSABLE_CHARACTER_MAP: Record<string, string> = {
   ɪ: "i",
   ᴍ: "m",
@@ -200,6 +217,10 @@ async function reviewReply(input: {
     return BLOCKED_REPLY;
   }
 
+  if (!shouldReviewReply(input.normalizedMessage.content, input.reply)) {
+    return input.reply;
+  }
+
   try {
     const verdict = await input.openRouterClient.createChatCompletion(
       [
@@ -230,8 +251,25 @@ async function reviewReply(input: {
       },
     );
 
-    return verdict.trim().toUpperCase() === "ALLOW" ? input.reply : BLOCKED_REPLY;
+    const normalizedVerdict = verdict.trim().toUpperCase();
+    if (normalizedVerdict.includes("BLOCK")) {
+      return BLOCKED_REPLY;
+    }
+
+    if (normalizedVerdict.includes("ALLOW")) {
+      return input.reply;
+    }
+
+    return input.reply;
   } catch {
-    return BLOCKED_REPLY;
+    return input.reply;
   }
+}
+
+function shouldReviewReply(sourceMessage: string, reply: string): boolean {
+  const normalizedSource = normalizeForPolicyScan(sourceMessage);
+  const normalizedReply = normalizeForPolicyScan(reply);
+  return SUSPICIOUS_INJECTION_PATTERNS.some(
+    (pattern) => pattern.test(normalizedSource) || pattern.test(normalizedReply),
+  );
 }
